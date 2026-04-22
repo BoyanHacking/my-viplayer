@@ -1,7 +1,7 @@
 {
   "name": "my-viplayer",
   "version": "1.0.0",
-  "description": "",
+  "description": "A cross-platform desktop video player with speed control and keyboard shortcuts",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
