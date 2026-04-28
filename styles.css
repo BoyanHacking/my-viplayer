@@ -120,6 +120,22 @@ video {
     opacity: 1;
 }
 
+.trim-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: rgba(233, 69, 96, 0.3);
+    border-radius: 3px;
+    pointer-events: none;
+    display: none;
+    z-index: 1;
+}
+
+.trim-overlay.visible {
+    display: block;
+}
+
 .time-display {
     display: flex;
     justify-content: space-between;
@@ -187,6 +203,62 @@ video {
 .btn-secondary {
     padding: 8px 12px;
     font-size: 13px;
+}
+
+.trim-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 0 3px 0;
+    border-top: 1px solid #2a3a5a;
+    margin-top: 12px;
+}
+
+.trim-controls-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.trim-controls-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.trim-time-display {
+    font-size: 14px;
+    font-weight: 600;
+    color: #e94560;
+    min-width: 50px;
+    text-align: center;
+    font-family: monospace;
+}
+
+#noteInput {
+    background: #0f0f1a;
+    border: 1px solid #2a3a5a;
+    color: #eee;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    width: 250px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+#noteInput:focus {
+    border-color: #e94560;
+}
+
+#noteInput:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+#saveMarkBtn {
+    white-space: nowrap;
 }
 
 .btn-large {

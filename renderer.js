@@ -24,12 +24,32 @@ const speedUp = document.getElementById('speedUp');
 const speedDown = document.getElementById('speedDown');
 const speedPresets = document.querySelectorAll('.speed-preset');
 
+// Trim controls
+const setInBtn = document.getElementById('setInBtn');
+const setOutBtn = document.getElementById('setOutBtn');
+const inTimeDisplay = document.getElementById('inTimeDisplay');
+const outTimeDisplay = document.getElementById('outTimeDisplay');
+const noteInput = document.getElementById('noteInput');
+const saveMarkBtn = document.getElementById('saveMarkBtn');
+const trimOverlay = document.getElementById('trimOverlay');
+const trimControls = document.getElementById('trimControls');
+
 // Icons
 const playIcon = document.getElementById('playIcon');
 const pauseIcon = document.getElementById('pauseIcon');
 
 // State
 let currentPlaybackRate = 1.0;
+
+// Trim state
+let currentVideoPath = null;
+let trimInPoint = null;
+let trimOutPoint = null;
+
+// Frame stepping state
+let frameDuration = 1 / 30; // Default to 30fps (33.33ms per frame)
+let leftArrowInterval = null;
+let rightArrowInterval = null;
 
 // Format time (seconds to MM:SS)
 function formatTime(seconds) {
@@ -59,6 +79,59 @@ function setSpeed(speed) {
     });
 }
 
+// Update trim overlay position on progress bar
+function updateTrimOverlay() {
+    if (trimInPoint === null || trimOutPoint === null || !video.duration) {
+        trimOverlay.classList.remove('visible');
+        return;
+    }
+
+    const startPercent = (trimInPoint / video.duration) * 100;
+    const endPercent = (trimOutPoint / video.duration) * 100;
+    const width = endPercent - startPercent;
+
+    trimOverlay.style.left = `${startPercent}%`;
+    trimOverlay.style.width = `${width}%`;
+    trimOverlay.classList.add('visible');
+}
+
+// Enable/disable trim controls based on video state
+function enableTrimControls(enabled) {
+    setInBtn.disabled = !enabled;
+    setOutBtn.disabled = !enabled;
+    noteInput.disabled = !enabled;
+    saveMarkBtn.disabled = !enabled;
+}
+
+// Reset all trim state
+function resetTrimState() {
+    trimInPoint = null;
+    trimOutPoint = null;
+    inTimeDisplay.textContent = '--:--';
+    outTimeDisplay.textContent = '--:--';
+    noteInput.value = '';
+    trimOverlay.classList.remove('visible');
+    saveMarkBtn.disabled = true;
+}
+
+// Enable save button only when both in and out points are set
+function updateSaveButtonState() {
+    const bothSet = trimInPoint !== null && trimOutPoint !== null;
+    saveMarkBtn.disabled = !bothSet;
+}
+
+// Step forward by one frame
+function stepForward() {
+    if (!video.duration) return;
+    video.currentTime = Math.min(video.duration, video.currentTime + frameDuration);
+}
+
+// Step backward by one frame
+function stepBackward() {
+    if (!video.duration) return;
+    video.currentTime = Math.max(0, video.currentTime - frameDuration);
+}
+
 // Load and play video
 async function loadVideo(filePath) {
     video.src = filePath;
@@ -69,6 +142,10 @@ async function loadVideo(filePath) {
     back30Btn.disabled = false;
     forward10Btn.disabled = false;
     forward30Btn.disabled = false;
+
+    currentVideoPath = filePath;
+    resetTrimState();
+    enableTrimControls(true);
 
     video.play().then(() => {
         updatePlayPauseIcon(true);
@@ -162,11 +239,69 @@ speedPresets.forEach(btn => {
     });
 });
 
+// Set In point
+setInBtn.addEventListener('click', () => {
+    if (!video.src) return;
+    trimInPoint = video.currentTime;
+    inTimeDisplay.textContent = formatTime(trimInPoint);
+    updateTrimOverlay();
+    updateSaveButtonState();
+});
+
+// Set Out point
+setOutBtn.addEventListener('click', () => {
+    if (!video.src) return;
+    trimOutPoint = video.currentTime;
+    outTimeDisplay.textContent = formatTime(trimOutPoint);
+    updateTrimOverlay();
+    updateSaveButtonState();
+});
+
+// Save mark
+saveMarkBtn.addEventListener('click', async () => {
+    if (trimInPoint === null || trimOutPoint === null) return;
+
+    // Validate
+    if (trimInPoint >= trimOutPoint) {
+        alert('In point must be before out point.');
+        return;
+    }
+
+    if (video.duration && (trimOutPoint > video.duration)) {
+        alert('Out point exceeds video duration.');
+        return;
+    }
+
+    const note = noteInput.value.replace(/\|/g, '').substring(0, 500);
+
+    const result = await ipcRenderer.invoke('save-mark-file', {
+        videoPath: currentVideoPath,
+        inPoint: trimInPoint,
+        outPoint: trimOutPoint,
+        note: note
+    });
+
+    if (result.success) {
+        saveMarkBtn.textContent = 'Saved!';
+        saveMarkBtn.disabled = true;
+        setTimeout(() => {
+            saveMarkBtn.textContent = 'Save Mark';
+            saveMarkBtn.disabled = false;
+        }, 2000);
+    } else {
+        alert('Failed to save mark: ' + (result.error || 'Unknown error'));
+    }
+});
+
 // Video events
 video.addEventListener('timeupdate', updateProgress);
 
 video.addEventListener('loadedmetadata', () => {
     durationEl.textContent = formatTime(video.duration);
+    // Disable trim controls if duration is invalid
+    if (!video.duration || isNaN(video.duration)) {
+        enableTrimControls(false);
+    }
 });
 
 video.addEventListener('ended', () => {
@@ -195,14 +330,26 @@ document.addEventListener('keydown', (e) => {
             break;
         case 'arrowleft':
             e.preventDefault();
-            if (!back10Btn.disabled) {
-                back10Btn.click();
+            if (!video.src) return;
+            // Prevent repeat events - only step once on initial press
+            if (!e.repeat) {
+                stepBackward();
+                // Start continuous stepping while held
+                leftArrowInterval = setInterval(() => {
+                    stepBackward();
+                }, 50); // Step every 50ms while holding
             }
             break;
         case 'arrowright':
             e.preventDefault();
-            if (!forward10Btn.disabled) {
-                forward10Btn.click();
+            if (!video.src) return;
+            // Prevent repeat events - only step once on initial press
+            if (!e.repeat) {
+                stepForward();
+                // Start continuous stepping while held
+                rightArrowInterval = setInterval(() => {
+                    stepForward();
+                }, 50); // Step every 50ms while holding
             }
             break;
         case 'arrowdown':
@@ -232,6 +379,24 @@ document.addEventListener('keydown', (e) => {
         case 'o':
             e.preventDefault();
             openBtn.click();
+            break;
+    }
+});
+
+// Stop continuous frame stepping when arrow keys are released
+document.addEventListener('keyup', (e) => {
+    switch(e.key.toLowerCase()) {
+        case 'arrowleft':
+            if (leftArrowInterval) {
+                clearInterval(leftArrowInterval);
+                leftArrowInterval = null;
+            }
+            break;
+        case 'arrowright':
+            if (rightArrowInterval) {
+                clearInterval(rightArrowInterval);
+                rightArrowInterval = null;
+            }
             break;
     }
 });

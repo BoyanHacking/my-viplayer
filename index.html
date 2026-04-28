@@ -28,6 +28,7 @@
             <div class="progress-container">
                 <div class="progress-bar" id="progressBar">
                     <div class="progress-fill" id="progressFill"></div>
+                    <div class="trim-overlay" id="trimOverlay"></div>
                 </div>
                 <div class="time-display">
                     <span id="currentTime">0:00</span>
@@ -107,12 +108,31 @@
             </div>
         </div>
 
+        <div class="trim-controls" id="trimControls">
+            <div class="trim-controls-left">
+                <button id="setInBtn" class="btn btn-secondary" disabled title="Set in point at current position">
+                    Set In
+                </button>
+                <span id="inTimeDisplay" class="trim-time-display">--:--</span>
+                <button id="setOutBtn" class="btn btn-secondary" disabled title="Set out point at current position">
+                    Set Out
+                </button>
+                <span id="outTimeDisplay" class="trim-time-display">--:--</span>
+            </div>
+            <div class="trim-controls-right">
+                <input type="text" id="noteInput" placeholder="Add a note..." maxlength="500" disabled>
+                <button id="saveMarkBtn" class="btn btn-primary" disabled>
+                    Save Mark
+                </button>
+            </div>
+        </div>
+
         <div class="shortcuts-info">
             <h3>Keyboard Shortcuts</h3>
             <div class="shortcuts-grid">
                 <span><kbd>Space</kbd></span><span>Play/Pause</span>
-                <span><kbd>←</kbd></span><span>Back 10s</span>
-                <span><kbd>→</kbd></span><span>Forward 10s</span>
+                <span><kbd>←</kbd></span><span>Back 1 frame</span>
+                <span><kbd>→</kbd></span><span>Forward 1 frame</span>
                 <span><kbd>↓</kbd></span><span>Back 30s</span>
                 <span><kbd>↑</kbd></span><span>Forward 30s</span>
                 <span><kbd>S</kbd></span><span>Decrease speed</span>

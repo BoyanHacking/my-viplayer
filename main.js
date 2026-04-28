@@ -1,4 +1,5 @@
 const { app, BrowserWindow, dialog, ipcMain } = require('electron');
+const fs = require('fs');
 const path = require('path');
 
 let mainWindow;
@@ -44,4 +45,39 @@ ipcMain.handle('select-file', async () => {
         return result.filePaths[0];
     }
     return null;
+});
+
+// Handle save mark file
+ipcMain.handle('save-mark-file', async (event, data) => {
+    const { videoPath, inPoint, outPoint, note } = data;
+
+    // Validate inputs
+    if (!videoPath || typeof inPoint !== 'number' || typeof outPoint !== 'number') {
+        return { success: false, error: 'Invalid input data' };
+    }
+
+    if (inPoint >= outPoint) {
+        return { success: false, error: 'In point must be before out point' };
+    }
+
+    if (inPoint < 0 || outPoint < 0) {
+        return { success: false, error: 'Points must be non-negative' };
+    }
+
+    // Sanitize note: remove pipe characters, limit length
+    const sanitizedNote = (note || '').replace(/\|/g, '').substring(0, 500);
+
+    // Build mark file path: <videofilename>.mark
+    const markPath = videoPath + '.mark';
+
+    // Build content line
+    const content = `${inPoint}|${outPoint}|${sanitizedNote}`;
+
+    try {
+        await fs.promises.writeFile(markPath, content, 'utf8');
+        return { success: true };
+    } catch (err) {
+        console.error('Failed to save mark file:', err);
+        return { success: false, error: 'Failed to save mark file' };
+    }
 });

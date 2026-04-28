@@ -41,8 +41,8 @@ npm start
 | Key | Action |
 |-----|--------|
 | `Space` | Play/Pause |
-| `←` | Back 10 seconds |
-| `→` | Forward 10 seconds |
+| `←` | Step back one frame (hold to continue stepping) |
+| `→` | Step forward one frame (hold to continue stepping) |
 | `↓` | Back 30 seconds |
 | `↑` | Forward 30 seconds |
 | `S` | Decrease speed |
