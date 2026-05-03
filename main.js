@@ -70,11 +70,20 @@ ipcMain.handle('save-mark-file', async (event, data) => {
     // Build mark file path: <videofilename>.mark
     const markPath = videoPath + '.mark';
 
-    // Build content line
-    const content = `${inPoint}|${outPoint}|${sanitizedNote}`;
+    // Build content line with newline
+    const content = `${inPoint}|${outPoint}|${sanitizedNote}\n`;
 
     try {
-        await fs.promises.writeFile(markPath, content, 'utf8');
+        // Check if file exists
+        const fileExists = await fs.promises.access(markPath).then(() => true).catch(() => false);
+
+        if (fileExists) {
+            // Append to existing file
+            await fs.promises.appendFile(markPath, content, 'utf8');
+        } else {
+            // Create new file with first mark
+            await fs.promises.writeFile(markPath, content, 'utf8');
+        }
         return { success: true };
     } catch (err) {
         console.error('Failed to save mark file:', err);
