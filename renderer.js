@@ -439,3 +439,8 @@ document.addEventListener('keyup', (e) => {
             break;
     }
 });
+
+// Handle loading video from main process (when opening file with app)
+ipcRenderer.on('load-video-from-path', (event, filePath) => {
+    loadVideo(filePath);
+});
