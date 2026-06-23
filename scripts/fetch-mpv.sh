@@ -48,9 +48,12 @@ resolve_url() {
       need curl
       local api url
       api="https://api.github.com/repos/zhongfly/mpv-winbuild/releases/latest"
-      # Pick the x86_64 non-vapoursynth 7z asset.
+      # Pick the x86_64 mpv build (7z). Anchor on "mpv-x86_64-<digit>" so we
+      # match the dated mpv release and naturally exclude: ffmpeg-* assets
+      # (which sort first in the listing), mpv-x86_64-v3-* (v3 microarch),
+      # mpv-{debug,dev}-*, mpv-aarch64-*. Also drop any vapoursynth build.
       url="$(curl -fsSL "$api" \
-        | grep -oE 'https://[^"]+x86_64[^"]*\.7z' \
+        | grep -oE 'https://[^"]+mpv-x86_64-[0-9][^"]*\.7z' \
         | grep -iv vapoursynth | head -n1 || true)"
       [[ -n "$url" ]] || { echo "could not resolve mpv win build URL; set MPV_URL" >&2; exit 1; }
       echo "$url"

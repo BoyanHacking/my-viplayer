@@ -5,10 +5,10 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --mac --win --linux --publish never",
-    "build:win": "electron-builder --win --publish never",
-    "build:mac": "electron-builder --mac --publish never",
-    "build:linux": "electron-builder --linux --publish never"
+    "build": "node scripts/build.js --mac --win --linux --publish never",
+    "build:win": "node scripts/build.js --win --publish never",
+    "build:mac": "node scripts/build.js --mac --publish never",
+    "build:linux": "node scripts/build.js --linux --publish never"
   },
   "keywords": ["video", "player", "electron", "media"],
   "author": "Boyan <boyanzpetkov@gmail.com>",
