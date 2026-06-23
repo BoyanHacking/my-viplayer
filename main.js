@@ -121,6 +121,7 @@ async function startMpv() {
 
     // Bridge mpv property/event traffic -> renderer.
     mpv.on('property-change', (msg) => {
+        if (process.env.MYVIPLAYER_DEBUG) console.log(`[mpv->renderer] property ${msg.name} =`, JSON.stringify(msg.data));
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('player:event', { name: msg.name, data: msg.data });
         }

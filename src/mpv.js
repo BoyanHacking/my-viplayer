@@ -78,6 +78,13 @@ class MpvController extends EventEmitter {
             // Sensible defaults; keep volume starting at 100 (mpv default).
         ];
 
+        // Optional extra args for debugging / portability (e.g. forcing a
+        // software video output under a headless environment). Does not affect
+        // production defaults. Set MYVIPLAYER_MPV_EXTRA_ARGS="--vo=x11 --v".
+        if (process.env.MYVIPLAYER_MPV_EXTRA_ARGS) {
+            args.push(...process.env.MYVIPLAYER_MPV_EXTRA_ARGS.split(/\s+/).filter(Boolean));
+        }
+
         this.proc = spawn(this.executable, args, {
             stdio: ['ignore', 'pipe', 'pipe'],
             windowsHide: false,

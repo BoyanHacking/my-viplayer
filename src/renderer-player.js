@@ -35,6 +35,7 @@ class Player extends EventTarget {
     _wireIncoming() {
         ipcRenderer.on('player:event', (_event, payload) => {
             const { name, data } = payload;
+            if (process.env.MYVIPLAYER_DEBUG) console.log(`[renderer<-mpv] ${name}`, JSON.stringify(data));
             switch (name) {
                 case 'time-pos':
                     this.currentTime = (typeof data === 'number') ? data : this.currentTime;
