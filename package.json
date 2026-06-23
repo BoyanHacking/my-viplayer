@@ -1,7 +1,7 @@
 {
   "name": "my-viplayer",
-  "version": "1.0.0",
-  "description": "A cross-platform desktop video player with speed control and keyboard shortcuts",
+  "version": "2.0.0",
+  "description": "A cross-platform desktop video player (libmpv playback core) with speed control, trim/marks, and keyboard shortcuts",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -29,7 +29,15 @@
       "index.html",
       "styles.css",
       "renderer.js",
+      "src/**/*.js",
       "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/mpv",
+        "to": "mpv",
+        "filter": ["**/*", "!.gitkeep"]
+      }
     ],
     "win": {
       "target": [

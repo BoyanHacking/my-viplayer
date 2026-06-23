@@ -1,10 +1,19 @@
 # My Video Player
 
-A cross-platform desktop video player built with Electron. Works on Windows and Mac.
+A cross-platform desktop video player built with Electron, using **mpv (libmpv
+architecture)** as its playback core. Works on Windows and Mac.
+
+> **Playback core:** video decoding is handled by a bundled **mpv** child process,
+> driven over JSON IPC and reparented into the app window. This gives full
+> real-world codec support — including **AC3, EAC3, DTS, and TrueHD** audio — that
+> Chromium's `<video>` element cannot decode. See issue [#2](../../issues/2).
 
 ## Features
 
-- **Play** local video files (MP4, WebM, OGG, MKV, AVI, MOV)
+- **Play** local video files (MP4, WebM, OGG, MKV, AVI, MOV, M4V, FLV, TS, M2TS)
+- **Full codec support via mpv** — H.264/HEVC video and **AC3 / EAC3 / DTS / TrueHD**
+  audio (and everything else mpv/FFmpeg decode), with GPU-accelerated decoding
+- **Volume & mute** controls
 - **Pause/Stop** playback
 - **Speed control** - Fine adjustment from 0.5x to 3.0x speed
   - Slider control with 0.1x increments
@@ -14,6 +23,7 @@ A cross-platform desktop video player built with Electron. Works on Windows and 
   - Back/Forward 10 seconds
   - Back/Forward 30 seconds
 - **Progress bar** - Click anywhere to seek
+- **Trim / marks** - Set In/Out points and save them to a `.mark` file
 - **Keyboard shortcuts** for all controls
 
 ## Installation
@@ -29,6 +39,14 @@ A cross-platform desktop video player built with Electron. Works on Windows and 
    ```bash
    npm install
    ```
+
+4. **Vendor mpv** (the playback core). Either run the helper script:
+   ```bash
+   bash scripts/fetch-mpv.sh          # auto-detect platform
+   bash scripts/fetch-mpv.sh win      # force Windows build
+   ```
+   …or manually place the `mpv` binary (+ its DLLs on Windows) into `vendor/mpv/`.
+   Without it, the app shows an "mpv not found" dialog on startup.
 
 ## Running the App
 
@@ -49,6 +67,7 @@ npm start
 | `D` | Increase speed |
 | `R` | Reset speed to 1x |
 | `O` | Open video file |
+| `M` | Mute / Unmute |
 
 ## How to Use
 
@@ -86,7 +105,7 @@ If you want to build the app yourself:
 
 2. Clone the repository:
    ```bash
-   git clone https://github.com/BoyanCoding/my-viplayer.git
+   git clone https://github.com/BoyanHacking/my-viplayer.git
    cd my-viplayer
    ```
 
@@ -95,12 +114,17 @@ If you want to build the app yourself:
    npm install
    ```
 
-4. Run the app:
+4. Vendor mpv (see [Installation](#installation) above):
+   ```bash
+   bash scripts/fetch-mpv.sh
+   ```
+
+5. Run the app:
    ```bash
    npm start
    ```
 
-5. Build for your platform:
+6. Build for your platform:
    ```bash
    npm run build:win    # Windows
    npm run build:mac    # macOS
