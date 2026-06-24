@@ -66,7 +66,7 @@ function createVideoHost() {
         parent: mainWindow,
         frame: false,
         show: false,
-        backgroundColor: '#000000',
+        backgroundColor: '#00000000',  // fully transparent (ARGB: fully opaque alpha=0)
         hasShadow: false,
         skipTaskbar: true,
         resizable: false,
@@ -82,13 +82,20 @@ function getHostWindowHandle() {
     if (!videoHost) return null;
     const buf = videoHost.getNativeWindowHandle();
     // HWND may be 4 or 8 bytes depending on arch; read as unsigned.
+    // CRITICAL: mpv expects a numeric --wid, not a string. The 64-bit
+    // path must convert to a number, not String(). Windows HWNDs are
+    // actually 32-bit even on 64-bit systems, but Electron returns a
+    // 64-bit buffer where the upper 32 bits should be zero. Read as u64 and
+    // return as Number (mpv ignores upper 32 bits).
     let hwnd;
     if (buf.length === 4) {
         hwnd = buf.readUInt32LE(0);
     } else {
-        // 64-bit: read as two 32-bit halves -> bigint-safe string
-        hwnd = buf.readUInt32LE(0) + 0x100000000 * buf.readUInt32LE(4);
-        hwnd = String(hwnd);
+        // 64-bit buffer: read as u64, convert to Number.
+        // Windows HWNDs are 32-bit, so this is safe.
+        const low = buf.readUInt32LE(0);
+        const high = buf.readUInt32LE(4);
+        hwnd = Number(low) + (Number(high) * 0x100000000);
     }
     return hwnd;
 }
