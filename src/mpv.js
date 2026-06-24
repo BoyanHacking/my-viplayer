@@ -99,7 +99,13 @@ class MpvController extends EventEmitter {
         });
 
         if (this.proc.stdout) {
-            this.proc.stdout.on('data', () => { /* swallowed; mpv is --no-terminal */ });
+            // mpv writes its human-readable log to stdout. Route it through the
+            // 'log' event (-> main console) so video-output (VO) init issues are
+            // visible when debugging. Quiet in production (mpv is --no-terminal).
+            this.proc.stdout.on('data', (d) => {
+                const msg = d.toString().trim();
+                if (msg) this.emit('log', msg);
+            });
         }
         if (this.proc.stderr) {
             this.proc.stderr.on('data', (d) => {

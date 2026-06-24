@@ -1,10 +1,10 @@
-const { app, BrowserWindow, dialog, ipcMain, shell, screen } = require('electron');
+const { app, BrowserWindow, BaseWindow, dialog, ipcMain, shell, screen } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { MpvController } = require('./src/mpv');
 
 let mainWindow;
-let videoHost;      // frameless child BrowserWindow that mpv renders into
+let videoHost;      // bare BaseWindow (no web contents) that mpv renders into via --wid
 let mpv;            // MpvController instance
 let pendingFilePath = null;
 const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'mkv', 'avi', 'mov', 'm4v', 'flv', 'ts', 'm2ts'];
@@ -52,7 +52,17 @@ function createWindow(filePath = null) {
  * mpv host window (child BrowserWindow mpv renders into via --wid)
  * ------------------------------------------------------------------ */
 function createVideoHost() {
-    videoHost = new BrowserWindow({
+    // IMPORTANT: the mpv render surface MUST be a bare BaseWindow, NOT a
+    // BrowserWindow. A BrowserWindow always attaches an opaque Chromium
+    // web-contents surface (a child window) that fills its client area and
+    // paints ON TOP of anything mpv draws into the HWND via --wid. That
+    // occluded the video (black screen while audio played).
+    //
+    // A BaseWindow with no WebContentsView is a plain native window with no
+    // composited surface, so mpv's video output renders directly and visibly.
+    // The HTML controls live in the separate main BrowserWindow below the video
+    // region (no overlap), and this host is positioned exactly over .video-wrapper.
+    videoHost = new BaseWindow({
         parent: mainWindow,
         frame: false,
         show: false,
@@ -60,18 +70,10 @@ function createVideoHost() {
         hasShadow: false,
         skipTaskbar: true,
         resizable: false,
-        focusable: false,
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true
-        }
+        focusable: false
     });
-    // Minimal page; mpv draws over this HWND directly.
-    videoHost.loadURL('data:text/html;charset=utf-8,<body style="margin:0;background:%23000"></body>');
-    // The host window sits on top of the renderer's .video-wrapper. Make it
-    // click-through so mouse events reach the renderer's overlay/click logic
-    // (play/pause toggle, future controls). mpv still renders into it; we just
-    // don't need it to capture the pointer. Feedback is drawn via mpv OSD.
+    // Click-through so mouse events reach the renderer's click-to-toggle logic
+    // while mpv draws the video underneath. Feedback is shown via mpv OSD.
     videoHost.setIgnoreMouseEvents(true, { forward: true });
     videoHost.on('closed', () => { videoHost = null; });
 }
@@ -187,21 +189,29 @@ app.whenReady().then(async () => {
     createWindow(filePath || pendingFilePath);
     pendingFilePath = null;
 
-    // Host window + mpv core must exist before the renderer tries to play.
-    createVideoHost();
-    await startMpv();
-
     // Keep the mpv host window positioned over the renderer's .video-wrapper.
     const syncHost = () => {
         if (mainWindow && !mainWindow.isDestroyed()) {
             mainWindow.webContents.send('video-rect-request');
         }
     };
+    // Register these BEFORE starting mpv. index.html can finish loading during
+    // the (async) mpv startup; attaching did-finish-load afterwards would miss
+    // it and the host window might never get shown/positioned at startup.
     mainWindow.on('resize', syncHost);
     mainWindow.on('move', syncHost);
     mainWindow.on('maximize', () => setTimeout(syncHost, 50));
     mainWindow.on('unmaximize', () => setTimeout(syncHost, 50));
+    mainWindow.on('show', syncHost);
     mainWindow.webContents.on('did-finish-load', syncHost);
+
+    // Host window + mpv core must exist before the renderer tries to play.
+    createVideoHost();
+    await startMpv();
+
+    // Belt-and-suspenders: make sure the host gets positioned/shown even if the
+    // renderer's load-time rect send raced with mpv startup.
+    syncHost();
 });
 
 app.on('window-all-closed', async () => {
