@@ -360,6 +360,8 @@ ipcMain.handle('player:seek', async (_event, { mode, value }) => {
 ipcMain.handle('player:set-speed', async (_event, n) => { const m = await requireMpv(); if (m) { await m.setSpeed(n); return true; } return false; });
 ipcMain.handle('player:set-volume', async (_event, n) => { const m = await requireMpv(); if (m) { await m.setVolume(n); return true; } return false; });
 ipcMain.handle('player:set-mute', async (_event, bool) => { const m = await requireMpv(); if (m) { await m.setMute(bool); return true; } return false; });
+ipcMain.handle('player:set-audio-track', async (_event, id) => { const m = await requireMpv(); if (m) { await m.setAudioTrack(id); return true; } return false; });
+ipcMain.handle('player:set-sub-track', async (_event, id) => { const m = await requireMpv(); if (m) { await m.setSubTrack(id); return true; } return false; });
 ipcMain.handle('player:frame-step', async () => { const m = await requireMpv(); if (m) { await m.frameStep(); return true; } return false; });
 ipcMain.handle('player:frame-back-step', async () => { const m = await requireMpv(); if (m) { await m.frameBackStep(); return true; } return false; });
 ipcMain.handle('player:show-text', async (_event, { text, durationMs }) => {

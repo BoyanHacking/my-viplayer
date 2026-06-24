@@ -35,6 +35,13 @@ const volumeSlider = document.getElementById('volumeSlider');
 const volumeDisplay = document.getElementById('volumeDisplay');
 const muteBtn = document.getElementById('muteBtn');
 
+// Track selection (Audio / Subtitle) — multi-track MKV support
+const tracksControl = document.getElementById('tracksControl');
+const audioTrackField = document.getElementById('audioTrackField');
+const subTrackField = document.getElementById('subTrackField');
+const audioTrackSelect = document.getElementById('audioTrackSelect');
+const subTrackSelect = document.getElementById('subTrackSelect');
+
 // Trim controls
 const setInBtn = document.getElementById('setInBtn');
 const setOutBtn = document.getElementById('setOutBtn');
@@ -248,6 +255,107 @@ player.on('volumechange', () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * Track selection (Audio / Subtitle)
+ * ------------------------------------------------------------------ */
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+}
+
+// Build a readable label for an mpv track-list entry.
+function trackLabel(t) {
+    const lang = t.lang ? String(t.lang).toUpperCase() : '';
+    const base = t.title || lang || `Track ${t.id}`;
+    return lang && t.title ? `${t.title} (${lang})` : base;
+}
+
+// Reflect mpv's current aid/sid (or the track-list 'selected' flag) in the UI.
+function syncTrackSelectValues() {
+    const tracks = Array.isArray(player.trackList) ? player.trackList : [];
+
+    if (audioTrackSelect.options.length) {
+        let v = (player.audioId === 'no' || player.audioId == null)
+            ? '' : String(player.audioId);
+        if (!v || ![...audioTrackSelect.options].some(o => o.value === v)) {
+            const sel = tracks.find(t => t.type === 'audio' && t.selected);
+            v = sel ? String(sel.id)
+                : (audioTrackSelect.options[0] ? audioTrackSelect.options[0].value : '');
+        }
+        if (v) audioTrackSelect.value = v;
+    }
+
+    if (subTrackSelect.options.length) {
+        let v = (player.subId === 'no' || player.subId == null)
+            ? 'no' : String(player.subId);
+        if (![...subTrackSelect.options].some(o => o.value === v)) {
+            const sel = tracks.find(t => t.type === 'sub' && t.selected);
+            v = sel ? String(sel.id) : 'no';
+        }
+        subTrackSelect.value = v;
+    }
+}
+
+// (Re)build the Audio/Subtitle dropdowns from the current track-list.
+// Audio select shows only when there are 2+ audio tracks (otherwise nothing
+// to switch). Subtitle select shows whenever >=1 sub track exists (so it can
+// be toggled off).
+function populateTrackSelects() {
+    const tracks = Array.isArray(player.trackList) ? player.trackList : [];
+    const audio = tracks.filter(t => t.type === 'audio');
+    const subs = tracks.filter(t => t.type === 'sub');
+
+    if (audio.length > 1) {
+        audioTrackSelect.innerHTML = audio
+            .map(t => `<option value="${t.id}">${escapeHtml(trackLabel(t))}</option>`)
+            .join('');
+        audioTrackSelect.disabled = false;
+        audioTrackField.style.display = '';
+    } else {
+        audioTrackSelect.innerHTML = '';
+        audioTrackSelect.disabled = true;
+        audioTrackField.style.display = 'none';
+    }
+
+    if (subs.length >= 1) {
+        subTrackSelect.innerHTML =
+            '<option value="no">Off</option>' +
+            subs.map(t => `<option value="${t.id}">${escapeHtml(trackLabel(t))}</option>`)
+                .join('');
+        subTrackSelect.disabled = false;
+        subTrackField.style.display = '';
+    } else {
+        subTrackSelect.innerHTML = '';
+        subTrackSelect.disabled = true;
+        subTrackField.style.display = 'none';
+    }
+
+    tracksControl.style.display =
+        (audio.length > 1 || subs.length >= 1) ? '' : 'none';
+
+    syncTrackSelectValues();
+}
+
+player.on('tracklist', populateTrackSelects);
+player.on('trackchange', syncTrackSelectValues);
+player.on('unloaded', () => {
+    audioTrackSelect.innerHTML = '';
+    subTrackSelect.innerHTML = '';
+    audioTrackSelect.disabled = true;
+    subTrackSelect.disabled = true;
+    tracksControl.style.display = 'none';
+});
+
+audioTrackSelect.addEventListener('change', () => {
+    const v = audioTrackSelect.value;
+    player.setAudioTrack(v === '' ? 'auto' : Number(v));
+});
+subTrackSelect.addEventListener('change', () => {
+    const v = subTrackSelect.value;
+    player.setSubTrack(v === 'no' ? 'no' : Number(v));
+});
+
+/* ------------------------------------------------------------------ *
  * Button / control event listeners
  * ------------------------------------------------------------------ */
 
@@ -394,7 +502,7 @@ videoWrapper.addEventListener('click', () => {
  * Keyboard shortcuts (unchanged behavior; routed through player)
  * ------------------------------------------------------------------ */
 document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return;
 
     switch (e.key.toLowerCase()) {
         case ' ':

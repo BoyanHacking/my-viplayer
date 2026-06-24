@@ -441,6 +441,55 @@ video {
     font-family: monospace;
 }
 
+/* Track selection (Audio / Subtitle) — multi-track MKV support */
+.tracks-control {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 12px;
+    border-left: 1px solid #2a3a5a;
+}
+
+.track-field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.track-field label {
+    font-size: 11px;
+    color: #888;
+    width: 34px;
+    flex-shrink: 0;
+}
+
+.track-select {
+    background: #0f0f1a;
+    color: #eee;
+    border: 1px solid #2a3a5a;
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 12px;
+    min-width: 120px;
+    max-width: 170px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.track-select:hover:not(:disabled) {
+    border-color: #3a4a6a;
+}
+
+.track-select:focus {
+    border-color: #e94560;
+}
+
+.track-select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 .shortcuts-info {
     background: #0f0f1a;
     padding: 10px 20px;

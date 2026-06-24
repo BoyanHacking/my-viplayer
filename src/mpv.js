@@ -216,6 +216,11 @@ class MpvController extends EventEmitter {
 
     async setMute(bool) { await this.command(['set_property', 'mute', !!bool]); }
 
+    // Track selection. id is the track's mpv id (a positive integer), or the
+    // string 'no' to disable that track type, or 'auto' for mpv's default pick.
+    async setAudioTrack(id) { await this.command(['set_property', 'aid', id]); }
+    async setSubTrack(id)   { await this.command(['set_property', 'sid', id]); }
+
     async frameStep()     { await this.command(['frame-step']); }
     async frameBackStep() { await this.command(['frame-back-step']); }
 
@@ -346,7 +351,9 @@ class MpvController extends EventEmitter {
             'mute',           // mute state
             'speed',          // playback rate
             'filename',       // currently loaded file basename
-            'track-list',     // audio/sub/video tracks (for later UI)
+            'track-list',     // audio/sub/video tracks (for track-selection UI)
+            'aid',            // current audio track id (number | 'no' | 'auto')
+            'sid',            // current subtitle track id (number | 'no' | 'auto')
         ];
         for (const p of props) {
             try { await this.observeProperty(p); } catch (e) { /* non-fatal */ }

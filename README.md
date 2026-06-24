@@ -13,6 +13,9 @@ architecture)** as its playback core. Works on Windows and Mac.
 - **Play** local video files (MP4, WebM, OGG, MKV, AVI, MOV, M4V, FLV, TS, M2TS)
 - **Full codec support via mpv** — H.264/HEVC video and **AC3 / EAC3 / DTS / TrueHD**
   audio (and everything else mpv/FFmpeg decode), with GPU-accelerated decoding
+- **Audio & subtitle track selection** — switch audio language and toggle
+  subtitles for multi-track MKVs (dropdowns appear automatically when a file
+  has more than one audio track or any subtitle tracks)
 - **Volume & mute** controls
 - **Pause/Stop** playback
 - **Speed control** - Fine adjustment from 0.5x to 3.0x speed
