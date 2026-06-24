@@ -490,6 +490,48 @@ video {
     cursor: not-allowed;
 }
 
+/* Fullscreen mode
+ * ------------------------------------------------------------------
+ * In fullscreen the video surface should fill the screen. We hide the trim /
+ * shortcuts chrome and float the main controls bar over the bottom of the
+ * video, auto-hiding it until the mouse moves. The mpv host window follows
+ * .video-wrapper's geometry automatically (ResizeObserver -> video-rect IPC),
+ * so just expanding .video-wrapper makes the video fill the screen. */
+body.fullscreen {
+    cursor: none;
+}
+
+body.fullscreen .container {
+    position: relative;
+}
+
+body.fullscreen .trim-controls,
+body.fullscreen .shortcuts-info {
+    display: none;
+}
+
+body.fullscreen .controls {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+    background: linear-gradient(to top, rgba(15, 15, 26, 0.92), rgba(22, 33, 62, 0.92));
+}
+
+body.fullscreen.controls-visible {
+    cursor: default;
+}
+
+body.fullscreen.controls-visible .controls {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+}
+
 .shortcuts-info {
     background: #0f0f1a;
     padding: 10px 20px;
