@@ -226,6 +226,33 @@ window.addEventListener('load', () => {
 });
 
 /* ------------------------------------------------------------------ *
+ * Toggle the keyboard-shortcuts legend (H)
+ * ------------------------------------------------------------------ */
+// Tucking the legend away reclaims vertical space for the video. The choice is
+// persisted in localStorage so it survives restarts.
+function toggleShortcutsLegend() {
+    const shortcutsInfo = document.querySelector('.shortcuts-info');
+    if (!shortcutsInfo) return;
+    shortcutsInfo.classList.toggle('hidden');
+    try {
+        localStorage.setItem('shortcuts-hidden', String(shortcutsInfo.classList.contains('hidden')));
+    } catch (_) {}
+    // The mpv host window tracks .video-wrapper's geometry; when the legend
+    // collapses/expands the wrapper resizes, so re-sync it now.
+    sendVideoRect();
+}
+
+// Restore the saved preference once on load.
+window.addEventListener('load', () => {
+    try {
+        if (localStorage.getItem('shortcuts-hidden') === 'true') {
+            const shortcutsInfo = document.querySelector('.shortcuts-info');
+            if (shortcutsInfo) shortcutsInfo.classList.add('hidden');
+        }
+    } catch (_) {}
+});
+
+/* ------------------------------------------------------------------ *
  * Fullscreen
  * ------------------------------------------------------------------ */
 let isFullscreen = false;
@@ -625,6 +652,10 @@ document.addEventListener('keydown', (e) => {
         case 'm':
             e.preventDefault();
             if (muteBtn) muteBtn.click();
+            break;
+        case 'h':
+            e.preventDefault();
+            toggleShortcutsLegend();
             break;
         case 'f':
             e.preventDefault();

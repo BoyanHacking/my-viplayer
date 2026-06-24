@@ -538,6 +538,10 @@ body.fullscreen.controls-visible .controls {
     border-top: 1px solid #2a3a5a;
 }
 
+.shortcuts-info.hidden {
+    display: none;
+}
+
 .shortcuts-info h3 {
     font-size: 12px;
     color: #666;
