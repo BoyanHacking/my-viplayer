@@ -66,8 +66,10 @@ npm start
 | `Space` | Play/Pause |
 | `←` | Step back one frame (hold to continue stepping) |
 | `→` | Step forward one frame (hold to continue stepping) |
-| `↓` | Back 30 seconds |
-| `↑` | Forward 30 seconds |
+| `↓` | Back 10 seconds |
+| `↑` | Forward 10 seconds |
+| `PgDn` | Back 30 seconds |
+| `PgUp` | Forward 30 seconds |
 | `S` | Decrease speed |
 | `D` | Increase speed |
 | `R` | Reset speed to 1x |
