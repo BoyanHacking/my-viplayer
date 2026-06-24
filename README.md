@@ -77,6 +77,7 @@ npm start
 | `M` | Mute / Unmute |
 | `F` / double-click | Toggle fullscreen |
 | `Esc` | Exit fullscreen |
+| `H` | Hide/show the shortcuts legend |
 
 ## How to Use
 
