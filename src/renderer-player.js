@@ -28,6 +28,8 @@ class Player extends EventTarget {
         this.filename = null;
         this.ready = false;       // a file is loaded and we know its duration
         this.trackList = [];
+        this.audioId = null;      // current audio track id (number | 'no' | 'auto' | null)
+        this.subId = null;        // current subtitle track id (number | 'no' | 'auto' | null)
 
         this._wireIncoming();
     }
@@ -80,6 +82,14 @@ class Player extends EventTarget {
                 case 'track-list':
                     this.trackList = Array.isArray(data) ? data : [];
                     this._emit('tracklist');
+                    break;
+                case 'aid':
+                    this.audioId = data;
+                    this._emit('trackchange');
+                    break;
+                case 'sid':
+                    this.subId = data;
+                    this._emit('trackchange');
                     break;
                 case 'idle-active':
                     if (data) {
@@ -142,6 +152,10 @@ class Player extends EventTarget {
     setVolume(n)    { return ipcRenderer.invoke('player:set-volume', Number(n)); }
     setMute(bool)   { return ipcRenderer.invoke('player:set-mute', !!bool); }
     toggleMute()    { return this.setMute(!this.muted); }
+
+    // Track selection. id: positive integer (track id), 'no' (disable), or 'auto'.
+    setAudioTrack(id) { return ipcRenderer.invoke('player:set-audio-track', id); }
+    setSubTrack(id)   { return ipcRenderer.invoke('player:set-sub-track', id); }
 
     /** Forward an OSD text message to be drawn on the mpv surface. */
     showText(text, durationMs) {
