@@ -373,6 +373,74 @@ video {
     color: #fff;
 }
 
+/* Volume control (NEW) */
+.volume-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 12px;
+    border-left: 1px solid #2a3a5a;
+}
+
+.btn-mute {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: #2a3a5a;
+    color: #eee;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+}
+
+.btn-mute:hover {
+    background: #3a4a6a;
+}
+
+.btn-mute.muted {
+    background: #e94560;
+    color: #fff;
+}
+
+#volumeSlider {
+    width: 90px;
+    height: 4px;
+    -webkit-appearance: none;
+    background: #2a3a5a;
+    border-radius: 2px;
+    outline: none;
+}
+
+#volumeSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #e94560;
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+#volumeSlider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: #e94560;
+    border-radius: 50%;
+    cursor: pointer;
+    border: none;
+}
+
+#volumeDisplay {
+    min-width: 40px;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: #888;
+    font-family: monospace;
+}
+
 .shortcuts-info {
     background: #0f0f1a;
     padding: 10px 20px;
@@ -389,7 +457,7 @@ video {
 
 .shortcuts-grid {
     display: grid;
-    grid-template-columns: repeat(9, 1fr);
+    grid-template-columns: repeat(10, 1fr);
     gap: 10px;
     font-size: 11px;
     color: #666;

@@ -1,7 +1,13 @@
 const { ipcRenderer } = require('electron');
+const { Player } = require('./src/renderer-player');
 
-// Video element and controls
-const video = document.getElementById('video');
+// Playback core — replaces the <video> element. Routes to mpv via the main
+// process and exposes an HTML5-media-like surface (currentTime, duration,
+// paused, play/pause/seek/speed + on('timeupdate') etc.) so the control logic
+// below stays almost unchanged.
+const player = new Player();
+
+// DOM elements
 const placeholder = document.getElementById('placeholder');
 const progressBar = document.getElementById('progressBar');
 const progressFill = document.getElementById('progressFill');
@@ -23,6 +29,11 @@ const speedDisplay = document.getElementById('speedDisplay');
 const speedUp = document.getElementById('speedUp');
 const speedDown = document.getElementById('speedDown');
 const speedPresets = document.querySelectorAll('.speed-preset');
+
+// Volume controls (NEW — was missing in the <video> version)
+const volumeSlider = document.getElementById('volumeSlider');
+const volumeDisplay = document.getElementById('volumeDisplay');
+const muteBtn = document.getElementById('muteBtn');
 
 // Trim controls
 const setInBtn = document.getElementById('setInBtn');
@@ -53,7 +64,7 @@ let rightArrowInterval = null;
 
 // Format time (seconds to MM:SS)
 function formatTime(seconds) {
-    if (isNaN(seconds)) return '0:00';
+    if (isNaN(seconds) || seconds == null) return '0:00';
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
@@ -61,19 +72,21 @@ function formatTime(seconds) {
 
 // Update progress bar
 function updateProgress() {
-    const percent = (video.currentTime / video.duration) * 100;
+    const dur = player.duration;
+    const cur = player.currentTime;
+    if (!dur || isNaN(dur)) return;
+    const percent = (cur / dur) * 100;
     progressFill.style.width = `${percent}%`;
-    currentTimeEl.textContent = formatTime(video.currentTime);
+    currentTimeEl.textContent = formatTime(cur);
 }
 
 // Set video speed
 function setSpeed(speed) {
     currentPlaybackRate = parseFloat(speed);
-    video.playbackRate = currentPlaybackRate;
+    player.setSpeed(currentPlaybackRate);
     speedSlider.value = currentPlaybackRate;
     speedDisplay.textContent = `${currentPlaybackRate.toFixed(1)}x`;
 
-    // Update preset buttons
     speedPresets.forEach(btn => {
         btn.classList.toggle('active', parseFloat(btn.dataset.speed) === currentPlaybackRate);
     });
@@ -81,13 +94,13 @@ function setSpeed(speed) {
 
 // Update trim overlay position on progress bar
 function updateTrimOverlay() {
-    if (trimInPoint === null || trimOutPoint === null || !video.duration) {
+    if (trimInPoint === null || trimOutPoint === null || !player.duration) {
         trimOverlay.classList.remove('visible');
         return;
     }
 
-    const startPercent = (trimInPoint / video.duration) * 100;
-    const endPercent = (trimOutPoint / video.duration) * 100;
+    const startPercent = (trimInPoint / player.duration) * 100;
+    const endPercent = (trimOutPoint / player.duration) * 100;
     const width = endPercent - startPercent;
 
     trimOverlay.style.left = `${startPercent}%`;
@@ -122,19 +135,19 @@ function updateSaveButtonState() {
 
 // Step forward by one frame
 function stepForward() {
-    if (!video.duration) return;
-    video.currentTime = Math.min(video.duration, video.currentTime + frameDuration);
+    if (!player.duration) return;
+    player.frameStep();
 }
 
 // Step backward by one frame
 function stepBackward() {
-    if (!video.duration) return;
-    video.currentTime = Math.max(0, video.currentTime - frameDuration);
+    if (!player.duration) return;
+    player.frameBackStep();
 }
 
 // Load and play video
 async function loadVideo(filePath) {
-    video.src = filePath;
+    if (!filePath) return;
     placeholder.classList.add('hidden');
     playPauseBtn.disabled = false;
     stopBtn.disabled = false;
@@ -147,11 +160,10 @@ async function loadVideo(filePath) {
     resetTrimState();
     enableTrimControls(true);
 
-    video.play().then(() => {
-        updatePlayPauseIcon(true);
-    }).catch(err => {
-        console.error('Error playing video:', err);
-    });
+    const result = await player.load(filePath);
+    if (result && result.success === false) {
+        alert('Failed to load video: ' + (result.error || 'Unknown error'));
+    }
 }
 
 // Update play/pause icon
@@ -165,83 +177,122 @@ function updatePlayPauseIcon(isPlaying) {
     }
 }
 
-// Click feedback overlay
-const clickFeedback = document.createElement('div');
-clickFeedback.id = 'clickFeedback';
-clickFeedback.innerHTML = `
-    <svg id="feedbackPlayIcon" width="64" height="64" viewBox="0 0 24 24" fill="white">
-        <polygon points="5 3 19 12 5 21 5 3"/>
-    </svg>
-    <svg id="feedbackPauseIcon" width="64" height="64" viewBox="0 0 24 24" fill="white" style="display:none">
-        <rect x="6" y="4" width="4" height="16"/>
-        <rect x="14" y="4" width="4" height="16"/>
-    </svg>
-`;
-document.querySelector('.video-wrapper').appendChild(clickFeedback);
-
+// Click feedback: now driven through mpv OSD (since the native mpv surface
+// covers the DOM overlay region). Falls back to a DOM flash if OSD fails.
 let feedbackTimer = null;
 function showClickFeedback(isPaused) {
-    const playIc = document.getElementById('feedbackPlayIcon');
-    const pauseIc = document.getElementById('feedbackPauseIcon');
-    playIc.style.display = isPaused ? 'block' : 'none';
-    pauseIc.style.display = isPaused ? 'none' : 'block';
-    clickFeedback.classList.add('visible');
+    player.showText(isPaused ? '❚❚' : '▶', 500).catch(() => {});
     clearTimeout(feedbackTimer);
-    feedbackTimer = setTimeout(() => {
-        clickFeedback.classList.remove('visible');
-    }, 500);
+    feedbackTimer = setTimeout(() => {}, 500);
 }
 
-// Event Listeners
+/* ------------------------------------------------------------------ *
+ * Keep the mpv host window positioned over .video-wrapper
+ * ------------------------------------------------------------------ */
+const videoWrapper = document.querySelector('.video-wrapper');
+
+function sendVideoRect() {
+    if (!videoWrapper) return;
+    const r = videoWrapper.getBoundingClientRect();
+    ipcRenderer.send('video-rect', {
+        x: r.left,
+        y: r.top,
+        width: r.width,
+        height: r.height
+    });
+}
+
+ipcRenderer.on('video-rect-request', sendVideoRect);
+window.addEventListener('resize', sendVideoRect);
+window.addEventListener('scroll', sendVideoRect, true);
+if (window.ResizeObserver && videoWrapper) {
+    new ResizeObserver(sendVideoRect).observe(videoWrapper);
+}
+// Send an initial rect once layout has settled.
+window.addEventListener('load', () => {
+    setTimeout(sendVideoRect, 0);
+});
+
+/* ------------------------------------------------------------------ *
+ * Wire player events -> UI (replaces the old <video> event listeners)
+ * ------------------------------------------------------------------ */
+player.on('timeupdate', updateProgress);
+
+player.on('loadedmetadata', () => {
+    durationEl.textContent = formatTime(player.duration);
+    if (!player.duration || isNaN(player.duration)) {
+        enableTrimControls(false);
+    }
+});
+
+player.on('play', () => updatePlayPauseIcon(true));
+player.on('pause', () => updatePlayPauseIcon(false));
+player.on('ended', () => updatePlayPauseIcon(false));
+
+player.on('ratechange', () => {
+    // keep slider in sync if speed changed from elsewhere
+    if (Math.abs(player.speed - currentPlaybackRate) > 1e-6) {
+        currentPlaybackRate = player.speed;
+        speedSlider.value = currentPlaybackRate;
+        speedDisplay.textContent = `${currentPlaybackRate.toFixed(1)}x`;
+        speedPresets.forEach(btn => {
+            btn.classList.toggle('active', parseFloat(btn.dataset.speed) === currentPlaybackRate);
+        });
+    }
+});
+
+player.on('volumechange', () => {
+    if (volumeSlider) volumeSlider.value = player.volume;
+    if (volumeDisplay) volumeDisplay.textContent = `${Math.round(player.volume)}%`;
+    if (muteBtn) muteBtn.classList.toggle('muted', player.muted);
+});
+
+/* ------------------------------------------------------------------ *
+ * Button / control event listeners
+ * ------------------------------------------------------------------ */
 
 // Open file
 openBtn.addEventListener('click', async () => {
     const filePath = await ipcRenderer.invoke('select-file');
-    if (filePath) {
-        loadVideo(filePath);
-    }
+    if (filePath) loadVideo(filePath);
 });
 
 // Play/Pause
 playPauseBtn.addEventListener('click', () => {
-    if (video.paused) {
-        video.play();
-        updatePlayPauseIcon(true);
-    } else {
-        video.pause();
-        updatePlayPauseIcon(false);
-    }
+    player.togglePlay();
 });
 
 // Stop
 stopBtn.addEventListener('click', () => {
-    video.pause();
-    video.currentTime = 0;
+    player.stop();
+    player.seekTo(0);
     updatePlayPauseIcon(false);
 });
 
 // Seek controls
 back10Btn.addEventListener('click', () => {
-    video.currentTime = Math.max(0, video.currentTime - 10);
+    player.seekBy(-10);
 });
 
 back30Btn.addEventListener('click', () => {
-    video.currentTime = Math.max(0, video.currentTime - 30);
+    player.seekBy(-30);
 });
 
 forward10Btn.addEventListener('click', () => {
-    video.currentTime = Math.min(video.duration, video.currentTime + 10);
+    player.seekBy(10);
 });
 
 forward30Btn.addEventListener('click', () => {
-    video.currentTime = Math.min(video.duration, video.currentTime + 30);
+    player.seekBy(30);
 });
 
 // Progress bar click
 progressBar.addEventListener('click', (e) => {
+    const dur = player.duration;
+    if (!dur) return;
     const rect = progressBar.getBoundingClientRect();
     const percent = (e.clientX - rect.left) / rect.width;
-    video.currentTime = percent * video.duration;
+    player.seekTo(percent * dur);
 });
 
 // Speed controls
@@ -259,17 +310,29 @@ speedDown.addEventListener('click', () => {
     setSpeed(newSpeed);
 });
 
-// Speed presets
 speedPresets.forEach(btn => {
     btn.addEventListener('click', () => {
         setSpeed(btn.dataset.speed);
     });
 });
 
+// Volume controls
+if (volumeSlider) {
+    volumeSlider.addEventListener('input', (e) => {
+        player.setVolume(parseFloat(e.target.value));
+        if (player.muted && parseFloat(e.target.value) > 0) player.setMute(false);
+    });
+}
+if (muteBtn) {
+    muteBtn.addEventListener('click', () => {
+        player.toggleMute();
+    });
+}
+
 // Set In point
 setInBtn.addEventListener('click', () => {
-    if (!video.src) return;
-    trimInPoint = video.currentTime;
+    if (!currentVideoPath) return;
+    trimInPoint = player.currentTime;
     inTimeDisplay.textContent = formatTime(trimInPoint);
     updateTrimOverlay();
     updateSaveButtonState();
@@ -277,8 +340,8 @@ setInBtn.addEventListener('click', () => {
 
 // Set Out point
 setOutBtn.addEventListener('click', () => {
-    if (!video.src) return;
-    trimOutPoint = video.currentTime;
+    if (!currentVideoPath) return;
+    trimOutPoint = player.currentTime;
     outTimeDisplay.textContent = formatTime(trimOutPoint);
     updateTrimOverlay();
     updateSaveButtonState();
@@ -288,13 +351,12 @@ setOutBtn.addEventListener('click', () => {
 saveMarkBtn.addEventListener('click', async () => {
     if (trimInPoint === null || trimOutPoint === null) return;
 
-    // Validate
     if (trimInPoint >= trimOutPoint) {
         alert('In point must be before out point.');
         return;
     }
 
-    if (video.duration && (trimOutPoint > video.duration)) {
+    if (player.duration && (trimOutPoint > player.duration)) {
         alert('Out point exceeds video duration.');
         return;
     }
@@ -320,88 +382,48 @@ saveMarkBtn.addEventListener('click', async () => {
     }
 });
 
-// Video events
-video.addEventListener('timeupdate', updateProgress);
-
-video.addEventListener('loadedmetadata', () => {
-    durationEl.textContent = formatTime(video.duration);
-    // Disable trim controls if duration is invalid
-    if (!video.duration || isNaN(video.duration)) {
-        enableTrimControls(false);
-    }
+// Click on the video region to toggle play/pause with visual feedback.
+// The mpv host window is click-through, so this still receives the clicks.
+videoWrapper.addEventListener('click', () => {
+    if (!player.ready || playPauseBtn.disabled) return;
+    player.togglePlay();
+    showClickFeedback(player.paused);
 });
 
-video.addEventListener('ended', () => {
-    updatePlayPauseIcon(false);
-});
-
-video.addEventListener('play', () => {
-    updatePlayPauseIcon(true);
-});
-
-video.addEventListener('pause', () => {
-    updatePlayPauseIcon(false);
-});
-
-// Click on video to toggle play/pause with visual feedback
-video.addEventListener('click', () => {
-    if (!video.src || video.src === window.location.href || playPauseBtn.disabled) return;
-    if (video.paused) {
-        video.play();
-        showClickFeedback(false);
-    } else {
-        video.pause();
-        showClickFeedback(true);
-    }
-});
-
-// Keyboard shortcuts
+/* ------------------------------------------------------------------ *
+ * Keyboard shortcuts (unchanged behavior; routed through player)
+ * ------------------------------------------------------------------ */
 document.addEventListener('keydown', (e) => {
-    // Don't trigger if typing in an input
     if (e.target.tagName === 'INPUT') return;
 
-    switch(e.key.toLowerCase()) {
+    switch (e.key.toLowerCase()) {
         case ' ':
             e.preventDefault();
-            if (!playPauseBtn.disabled) {
-                playPauseBtn.click();
-            }
+            if (!playPauseBtn.disabled) playPauseBtn.click();
             break;
         case 'arrowleft':
             e.preventDefault();
-            if (!video.src) return;
-            // Prevent repeat events - only step once on initial press
+            if (!player.ready) return;
             if (!e.repeat) {
                 stepBackward();
-                // Start continuous stepping while held
-                leftArrowInterval = setInterval(() => {
-                    stepBackward();
-                }, 50); // Step every 50ms while holding
+                leftArrowInterval = setInterval(() => stepBackward(), 50);
             }
             break;
         case 'arrowright':
             e.preventDefault();
-            if (!video.src) return;
-            // Prevent repeat events - only step once on initial press
+            if (!player.ready) return;
             if (!e.repeat) {
                 stepForward();
-                // Start continuous stepping while held
-                rightArrowInterval = setInterval(() => {
-                    stepForward();
-                }, 50); // Step every 50ms while holding
+                rightArrowInterval = setInterval(() => stepForward(), 50);
             }
             break;
         case 'arrowdown':
             e.preventDefault();
-            if (!back30Btn.disabled) {
-                back30Btn.click();
-            }
+            if (!back30Btn.disabled) back30Btn.click();
             break;
         case 'arrowup':
             e.preventDefault();
-            if (!forward30Btn.disabled) {
-                forward30Btn.click();
-            }
+            if (!forward30Btn.disabled) forward30Btn.click();
             break;
         case 's':
             e.preventDefault();
@@ -419,12 +441,15 @@ document.addEventListener('keydown', (e) => {
             e.preventDefault();
             openBtn.click();
             break;
+        case 'm':
+            e.preventDefault();
+            if (muteBtn) muteBtn.click();
+            break;
     }
 });
 
-// Stop continuous frame stepping when arrow keys are released
 document.addEventListener('keyup', (e) => {
-    switch(e.key.toLowerCase()) {
+    switch (e.key.toLowerCase()) {
         case 'arrowleft':
             if (leftArrowInterval) {
                 clearInterval(leftArrowInterval);
@@ -441,6 +466,6 @@ document.addEventListener('keyup', (e) => {
 });
 
 // Handle loading video from main process (when opening file with app)
-ipcRenderer.on('load-video-from-path', (event, filePath) => {
+ipcRenderer.on('load-video-from-path', (_event, filePath) => {
     loadVideo(filePath);
 });

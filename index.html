@@ -9,10 +9,10 @@
 <body>
     <div class="container">
         <div class="video-wrapper">
-            <video id="video" preload="metadata">
-                <source src="" type="video/mp4">
-                Your browser does not support the video tag.
-            </video>
+            <!-- The mpv host window (a native child window owned by the main
+                 process) renders video here. This element is a layout
+                 placeholder + click target; it is click-through so clicks reach
+                 the play/pause toggle in renderer.js. -->
             <div class="placeholder" id="placeholder">
                 <div class="placeholder-content">
                     <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -104,6 +104,16 @@
                             <button class="speed-preset" data-speed="2">2x</button>
                         </div>
                     </div>
+                    <div class="volume-control">
+                        <button id="muteBtn" class="btn-mute" title="Mute / Unmute (M)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+                                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                            </svg>
+                        </button>
+                        <input type="range" id="volumeSlider" min="0" max="100" step="1" value="100">
+                        <span id="volumeDisplay">100%</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -139,6 +149,7 @@
                 <span><kbd>D</kbd></span><span>Increase speed</span>
                 <span><kbd>R</kbd></span><span>Reset speed</span>
                 <span><kbd>O</kbd></span><span>Open video</span>
+                <span><kbd>M</kbd></span><span>Mute / Unmute</span>
             </div>
         </div>
     </div>

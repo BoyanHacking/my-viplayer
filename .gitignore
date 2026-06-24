@@ -25,3 +25,8 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+
+# Vendored mpv binaries (downloaded in dev / CI; shipped via extraResources)
+# keep the directory but ignore its contents except the placeholder
+vendor/mpv/*
+!vendor/mpv/.gitkeep
