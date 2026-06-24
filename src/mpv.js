@@ -68,7 +68,6 @@ class MpvController extends EventEmitter {
             '--no-config',
             '--no-terminal',
             '--no-osc',           // we provide our own controls
-            '--force-window=no',  // no standalone window; render only into --wid
             '--keep-open=yes',    // pause at end instead of closing (matches old behavior)
             '--hwdec=auto-safe',  // gpu decode when available
             '--no-input-default-bindings',
