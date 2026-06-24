@@ -592,9 +592,17 @@ document.addEventListener('keydown', (e) => {
             break;
         case 'arrowdown':
             e.preventDefault();
-            if (!back30Btn.disabled) back30Btn.click();
+            if (!back10Btn.disabled) back10Btn.click();
             break;
         case 'arrowup':
+            e.preventDefault();
+            if (!forward10Btn.disabled) forward10Btn.click();
+            break;
+        case 'pagedown':
+            e.preventDefault();
+            if (!back30Btn.disabled) back30Btn.click();
+            break;
+        case 'pageup':
             e.preventDefault();
             if (!forward30Btn.disabled) forward30Btn.click();
             break;
