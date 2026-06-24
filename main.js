@@ -212,6 +212,20 @@ app.whenReady().then(async () => {
     mainWindow.on('show', syncHost);
     mainWindow.webContents.on('did-finish-load', syncHost);
 
+    // Fullscreen transitions: tell the renderer (so it can restyle/hide chrome)
+    // and re-sync the mpv host window over the resized .video-wrapper. The OS
+    // transition is async, so re-sync on a couple of ticks to be safe — the
+    // renderer's ResizeObserver also fires and acts as a backstop.
+    const onFullscreenChange = (active) => {
+        if (mainWindow && !mainWindow.isDestroyed()) {
+            mainWindow.webContents.send('fullscreen-change', active);
+        }
+        setTimeout(syncHost, 50);
+        setTimeout(syncHost, 300);
+    };
+    mainWindow.on('enter-full-screen', () => onFullscreenChange(true));
+    mainWindow.on('leave-full-screen', () => onFullscreenChange(false));
+
     // Host window + mpv core must exist before the renderer tries to play.
     createVideoHost();
     await startMpv();
@@ -388,6 +402,18 @@ ipcMain.on('video-rect', (_event, rect) => {
     } catch (err) {
         console.error('[video-rect] failed:', err.message);
     }
+});
+
+// Toggle the main window's fullscreen state. The actual UI restyling lives
+// in the renderer, driven by the 'fullscreen-change' event above so it stays
+// in sync regardless of how fullscreen was triggered (this IPC, F key,
+// double-click, or native F11).
+ipcMain.handle('window:toggle-fullscreen', async () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.setFullScreen(!mainWindow.isFullScreen());
+        return true;
+    }
+    return false;
 });
 
 // Allow renderer to open external links (mpv docs etc.) safely if ever needed.

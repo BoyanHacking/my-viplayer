@@ -26,6 +26,8 @@ architecture)** as its playback core. Works on Windows and Mac.
   - Back/Forward 10 seconds
   - Back/Forward 30 seconds
 - **Progress bar** - Click anywhere to seek
+- **Fullscreen** - Immersive playback with auto-hiding controls (toggle with the
+  button, `F`, or double-click; exit with `Esc`)
 - **Trim / marks** - Set In/Out points and save them to a `.mark` file
 - **Keyboard shortcuts** for all controls
 
@@ -71,6 +73,8 @@ npm start
 | `R` | Reset speed to 1x |
 | `O` | Open video file |
 | `M` | Mute / Unmute |
+| `F` / double-click | Toggle fullscreen |
+| `Esc` | Exit fullscreen |
 
 ## How to Use
 

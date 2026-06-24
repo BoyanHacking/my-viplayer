@@ -42,6 +42,11 @@ const subTrackField = document.getElementById('subTrackField');
 const audioTrackSelect = document.getElementById('audioTrackSelect');
 const subTrackSelect = document.getElementById('subTrackSelect');
 
+// Fullscreen controls
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+const fsEnterIcon = document.getElementById('fsEnterIcon');
+const fsExitIcon = document.getElementById('fsExitIcon');
+
 // Trim controls
 const setInBtn = document.getElementById('setInBtn');
 const setOutBtn = document.getElementById('setOutBtn');
@@ -219,6 +224,59 @@ if (window.ResizeObserver && videoWrapper) {
 window.addEventListener('load', () => {
     setTimeout(sendVideoRect, 0);
 });
+
+/* ------------------------------------------------------------------ *
+ * Fullscreen
+ * ------------------------------------------------------------------ */
+let isFullscreen = false;
+let controlsHideTimer = null;
+const CONTROLS_HIDE_MS = 2500;
+
+// Reflect fullscreen state in the DOM and manage the auto-hiding control bar.
+function applyFullscreen(active) {
+    isFullscreen = active;
+    document.body.classList.toggle('fullscreen', active);
+    if (active) {
+        // Show controls immediately on entry, then start the auto-hide timer.
+        document.body.classList.add('controls-visible');
+        scheduleControlsHide();
+    } else {
+        clearTimeout(controlsHideTimer);
+        document.body.classList.remove('controls-visible');
+    }
+    if (fsEnterIcon) fsEnterIcon.style.display = active ? 'none' : 'block';
+    if (fsExitIcon) fsExitIcon.style.display = active ? 'block' : 'none';
+}
+
+// While fullscreen, show the controls bar and hide it again after a short
+// period of mouse inactivity.
+function scheduleControlsHide() {
+    if (!isFullscreen) return;
+    clearTimeout(controlsHideTimer);
+    document.body.classList.add('controls-visible');
+    controlsHideTimer = setTimeout(() => {
+        document.body.classList.remove('controls-visible');
+    }, CONTROLS_HIDE_MS);
+}
+
+function toggleFullscreen() {
+    ipcRenderer.invoke('window:toggle-fullscreen');
+}
+
+// Any mouse movement in fullscreen reveals the controls (and the cursor).
+window.addEventListener('mousemove', () => {
+    if (isFullscreen) scheduleControlsHide();
+});
+
+// Fullscreen state is driven by the main process so it stays in sync no matter
+// how fullscreen was entered/exited (F key, double-click, native F11/Esc).
+ipcRenderer.on('fullscreen-change', (_event, active) => {
+    applyFullscreen(active);
+});
+
+if (fullscreenBtn) {
+    fullscreenBtn.addEventListener('click', toggleFullscreen);
+}
 
 /* ------------------------------------------------------------------ *
  * Wire player events -> UI (replaces the old <video> event listeners)
@@ -498,6 +556,13 @@ videoWrapper.addEventListener('click', () => {
     showClickFeedback(player.paused);
 });
 
+// Double-click the video region to toggle fullscreen. The two preceding
+// single 'click' events toggle play then pause (net no-op), so playback state
+// is preserved — only fullscreen toggles, which is the expected behavior.
+videoWrapper.addEventListener('dblclick', () => {
+    toggleFullscreen();
+});
+
 /* ------------------------------------------------------------------ *
  * Keyboard shortcuts (unchanged behavior; routed through player)
  * ------------------------------------------------------------------ */
@@ -552,6 +617,23 @@ document.addEventListener('keydown', (e) => {
         case 'm':
             e.preventDefault();
             if (muteBtn) muteBtn.click();
+            break;
+        case 'f':
+            e.preventDefault();
+            toggleFullscreen();
+            break;
+        case 'escape':
+            // Exit fullscreen (Esc is native on macOS; this covers Windows/Linux).
+            if (isFullscreen) {
+                e.preventDefault();
+                toggleFullscreen();
+            }
+            break;
+        case 'f11':
+            // Own F11 so the app's fullscreen (and its UI sync) is deterministic
+            // across platforms instead of relying on the browser default.
+            e.preventDefault();
+            toggleFullscreen();
             break;
     }
 });
